@@ -1,0 +1,116 @@
+---
+title: "Regression Tree"
+author: "Joy"
+date: "6/2/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r read data}
+#install.packages("tree")
+library(tree)
+library(tidyverse)
+library(rpart)       # performing regression trees
+library(rpart.plot)  # plotting regression trees
+#library(ipred)       # bagging
+library(caret)       # bagging
+
+train <- read.csv("train_bck_Selected.csv")
+test <- read.csv("test_bck_Selected.csv")
+```
+# m1
+```{r m1}
+options(scipen=999)
+m1 <- rpart(
+  formula = SalePrice ~ ., 
+  data    = train,
+  method  = "anova"
+  )
+rpart.plot(m1)
+plotcp(m1)
+
+m1$cptable
+
+```
+# m2
+```{r m2}
+m2 <- rpart(
+  formula = SalePrice ~ ., 
+  data    = train,
+  method  = "anova",
+  control = list(cp = 0, 
+                 # minimum number of data required to split
+                # maxdepth = 8, # maximum number of internal nodes
+                 xval = 10) # number of cross validation
+  )
+rpart.plot(m2)
+plotcp(m2)
+#abline(v = )
+```
+# tuning
+```{r automation tuning 1/2}
+hyper_grid <- expand.grid(
+  minsplit = seq(10, 30, 1),
+  maxdepth = seq(7, 30, 1)
+)
+
+nrow(hyper_grid)
+
+models <- list()
+
+for (i in 1:nrow(hyper_grid)) {
+  
+  # get minsplit, maxdepth values at row i
+  minsplit <- hyper_grid$minsplit[i]
+  maxdepth <- hyper_grid$maxdepth[i]
+
+  # train a model and store in the list
+  models[[i]] <- rpart(
+    formula = SalePrice ~ .,
+    data    = train,
+    method  = "anova",
+    control = list(minsplit = minsplit, maxdepth = maxdepth)
+    )
+}
+
+# function to get optimal cp
+get_cp <- function(x) {
+  min    <- which.min(x$cptable[, "xerror"])
+  cp <- x$cptable[min, "CP"] 
+}
+
+# function to get minimum error
+get_min_error <- function(x) {
+  min    <- which.min(x$cptable[, "xerror"])
+  xerror <- x$cptable[min, "xerror"] 
+}
+```
+
+
+```{r automation tuning 2/2}
+hyper_grid %>%
+  mutate(
+    cp    = map_dbl(models, get_cp),
+    error = map_dbl(models, get_min_error)
+    ) %>%
+  arrange(error) %>%
+  top_n(-5, wt = error)
+```
+# opt tree
+```{r optimal tree}
+optimal_tree <- rpart(
+    formula = SalePrice ~ .,
+    data    = train,
+    method  = "anova",
+    control = list(minsplit = 14, maxdepth = 13, cp = 0.01)
+    )
+rpart.plot(optimal_tree)
+
+pred_train <- predict(optimal_tree, newdata = train)
+RMSE(pred = pred_train, obs = train$SalePrice)
+
+pred <- predict(optimal_tree, newdata = test)
+RMSE(pred = pred, obs = test$SalePrice)
+```
+

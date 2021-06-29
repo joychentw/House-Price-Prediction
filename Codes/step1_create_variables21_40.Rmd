@@ -1,0 +1,448 @@
+---
+title: "Create Variables: 21-40"
+author: "Joy"
+date: "5/23/2021"
+output: html_document
+---
+```{r package}
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(fastDummies)
+library(stats)
+```
+
+```{r data}
+data <- read.csv('train.csv',header = TRUE)
+dat <- cbind(data[,21:40], data[,81])
+names(dat)[21] <- 'SalePrice'
+str(dat)
+```
+```{r Correlation}
+temp_df <- cor(na.omit(dat[, sapply(dat, is.numeric)]))
+temp_df[abs(temp_df)<0.7] <- 0
+corrplot(temp_df,type = "upper",
+         number.cex = 0.5,method = 'square',tl.cex=0.6)
+```
+
+# 1 YearRemodAdd
+YearRemodAdd : Remodel date
+```{r YearRemodAdd}
+str(dat[,1])
+plot(table(dat[,1]))
+# transform the data into the age of the remodeled
+remodel_age <- 2021 - dat[,1]
+f1 <- as.data.frame(remodel_age) # f stands for feature
+colnames(f1) <- 'YearRemodAdd'
+head(f1)
+```
+
+# 2 RoofStyle
+RoofStyle: Type of roof  
+       Flat	    Flat  
+       Gable	  Gable  
+       Gambrel	Gabrel (Barn)  
+       Hip	    Hip  
+       Mansard	Mansard  
+       Shed	    Shed  
+```{r RoofStyle 1/2}
+sum(is.na(dat[,2])) # no NAs
+table(dat[,2]) # check distribution
+# make into dummy vairables
+temp_roof <- dummy_cols(dat, select_columns = "RoofStyle")[21:27]
+cor(temp_roof)[1,]
+corrplot(cor(temp_roof),type = "upper",
+         number.cex = 0.5,method = 'square',tl.cex=0.6)
+```
+Since `Flat`, `Mansard`, `Shed`and `Gambrel` only account for less than 50 instances, we will combine them into `Others`.  
+```{r combine RoofStyle 2/2}
+# combine
+f2 <- ifelse(dat[,2] %in% c('Flat', 'Mansard', 'Shed','Gambrel'),
+                            'Others', dat[,2])
+table(f2)
+f2 <- as.data.frame(as.factor(f2))
+names(f2) <- "RoofStyle"
+head(f2)
+```
+
+# 3 RoofMatl
+**exclude this variable**
+RoofMatl: Roof material
+       ClyTile	Clay or Tile
+       CompShg	Standard (Composite) Shingle
+       Membran	Membrane
+       Metal	Metal
+       Roll	Roll
+       Tar&Grv	Gravel & Tar
+       WdShake	Wood Shakes
+       WdShngl	Wood Shingles
+```{r RoofMatl}
+sum(is.na(dat[,3])) # no NAs
+table(dat[,3])
+```
+# 4 Exterior1st
+Exterior1st: Exterior covering on house
+       AsbShng	Asbestos Shingles
+       AsphShn	Asphalt Shingles
+       BrkComm	Brick Common
+       BrkFace	Brick Face
+       CBlock	Cinder Block
+       CemntBd	Cement Board
+       HdBoard	Hard Board
+       ImStucc	Imitation Stucco
+       MetalSd	Metal Siding
+       Other	Other
+       Plywood	Plywood
+       PreCast	PreCast	
+       Stone	Stone
+       Stucco	Stucco
+       VinylSd	Vinyl Siding
+       Wd Sdng	Wood Siding
+       WdShing	Wood Shingles
+```{r Exterior1st}
+sum(is.na(dat[,4])) # no NAs
+table(dat[,4])
+cor(dummy_cols(dat, select_columns = "Exterior1st")[21:36])[1,]
+
+# anything less than 61, will be combined to "others"
+
+f4 <- ifelse(dat[,4] %in% c('AsbShng', 'AsphShn', 'BrkComm','BrkFace',
+                                 'CBlock','ImStucc', 'Stone', 'Stucco', 'WdShing'),
+                  'Others', dat[,4])
+table(f4)
+
+f4 <- as.data.frame(as.factor(f4))
+names(f4) <- "Exterior1st"
+head(f4)
+```
+
+# 5 Exterior2nd
+**exclude this variable**
+Exterior2nd: Exterior covering on house (if more than one material)
+```{r Exterior2nd}
+sum(is.na(dat[,5])) # no NAs
+table(dat[,5])
+cor(dummy_cols(dat, select_columns = "Exterior2nd")[21:37])[1,]
+```
+
+# 6 MasVnrType
+MasVnrType: Masonry veneer type
+       BrkCmn	Brick Common
+       BrkFace	Brick Face
+       CBlock	Cinder Block
+       None	None
+       Stone	Stone
+```{r MasVnrType 1/2}
+sum(is.na(dat[,6])) # 8 NAs
+# categorizing those as none
+dat[is.na(dat[,6])==1,]$MasVnrType <- 'None'
+table(dat[,6])
+cor(dummy_cols(dat, select_columns = "MasVnrType")[21:25])[1,]
+
+f6 <- as.data.frame(as.factor(dat[,6]))
+names(f6) <- "MasVnrType"
+head(f6)
+```
+# 7 MasVnrArea
+MasVnrArea: Masonry veneer area in square feet
+```{r MasVnrArea}
+# histogram
+ggplot(dat, aes(x = MasVnrArea)) + geom_histogram(bins = 100) +
+  xlab('Masonry veneer area in square feet')
+
+# histogram without 0 sqft
+ggplot(dat[dat$MasVnrArea > 1,], aes(x = MasVnrArea)) + 
+  geom_histogram(bins = 100) +
+  xlab('Masonry veneer area in square feet')
+
+# scatter plot with sales price
+ggplot(dat, aes(x = MasVnrArea, y = SalePrice)) + geom_point(alpha = .3) +
+  xlab('Masonry veneer area in square feet') +
+  ylab('Sales Price')
+```
+```{r MasVnrArea fill in NAs}
+sum(is.na(dat[,7])) # 8 NAs
+# fill in 0 for NAs
+dat[is.na(dat[,7])==1,]$MasVnrArea <- 0
+f7 <- as.data.frame(dat[,7])
+colnames(f7) <- 'MasVnrArea'
+```
+
+# 8 ExterQual
+ExterQual: Evaluates the quality of the material on the exterior  
+       Ex	Excellent  
+       Gd	Good  
+       TA	Average/Typical  
+       Fa	Fair  
+       Po	Poor  
+```{r ExterQual}
+sum(is.na(dat[,8])) # no NAs
+table(dat[,8])
+cor(dummy_cols(dat, select_columns = "ExterQual")[21:25])[1,]
+
+f8 <- as.data.frame(as.factor(dat[,8]))
+names(f8) <- "ExterQual"
+head(f8)
+```
+
+# 9 ExterCond
+ExterCond: Evaluates the present condition of the material on the exterior  
+       Ex	Excellent
+       Gd	Good
+       TA	Average/Typical
+       Fa	Fair
+       Po	Poor
+```{r ExterCond}
+sum(is.na(dat[,9])) # no NAs
+table(dat[,9])
+cor(dummy_cols(dat, select_columns = "ExterCond")[21:26])[1,]
+
+# combining fair and poor
+f9 <- ifelse(dat[,9]=='Po', 'Fa', dat[,9])
+table(f9)
+
+f9 <- as.data.frame(as.factor(dat[,9]))
+names(f9) <- "ExterCond"
+head(f9)
+```
+
+# 10 Foundation
+Foundation: Type of foundation
+       BrkTil	Brick & Tile
+       CBlock	Cinder Block
+       PConc	Poured Concrete	
+       Slab	Slab
+       Stone	Stone
+       Wood	Wood
+```{r Foundation}
+sum(is.na(dat[,10])) # no NAs
+table(dat[,10])
+cor(dummy_cols(dat, select_columns = "Foundation")[21:27])[1,]
+
+# combine vairables with instances less than 50 as "Others"
+f10 <- ifelse(dat[,10] %in% c('Slab', 'Stone', 'Wood'), "Others",dat[,10])
+table(f10)
+
+f10 <- as.data.frame(as.factor(f10))
+names(f10) <- "Foundation"
+head(f10)
+```
+
+# 11 BsmtQual
+# 12 BsmtCond
+BsmtQual: Evaluates the height of the basement
+       Ex	Excellent (100+ inches)  	   5
+       Gd	Good (90-99 inches)          4
+       TA	Typical (80-89 inches)       3
+       Fa	Fair (70-79 inches)          2
+       Po	Poor (<70 inches             1
+       NA	No Basement                  0
+# 13 BsmtExposure
+       Gd	Good Exposure                5
+       Av	Average Exposure 	           3
+       Mn	Mimimum Exposure             1
+       No	No Exposure                  0
+       NA	No                           0
+# 14 BsmtFinType1
+BsmtFinType1: Rating of basement finished area  
+       GLQ	Good Living Quarters                5
+       ALQ	Average Living Quarters             4
+       BLQ	Below Average Living Quarters	      3
+       Rec	Average Rec Room                    2
+       LwQ	Low Quality                         1
+       Unf	Unfinshed                           0
+       NA	No Basement                           0
+# 16 BsmtFinType2
+```{r 11 BsmtQual}
+sum(is.na(dat[,11])) # 37 no Basements named "NA"
+# change NA to NB meaning no basements
+dat[is.na(dat[,11]) ==1,]$BsmtQual <- 'NB'
+table(dat[,11])
+f11 <- as.data.frame(ifelse(dat$BsmtQual == 'NB', 0 ,1))
+names(f11) <- 'HasBsmt'
+
+# assign score to the bsmt quality
+bsmtscore11 <- as.data.frame(ifelse(dat$BsmtQual == 'Ex', 5,
+                                    ifelse(dat$BsmtQual == 'Gd', 4,
+                                           ifelse(dat$BsmtQual == 'TA', 3,
+                                                  ifelse(dat$BsmtQual == 'Fa', 2,
+                                                         ifelse(dat$BsmtQual =='Po',
+                                                                1,0))))))
+
+```
+
+```{r 12 BsmtCond}
+sum(is.na(dat[,12])) # 37 no Basements named "NA"
+# change NA to NB meaning no basements
+dat[is.na(dat[,12]) ==1,]$BsmtCond <- 'NB'
+table(dat[,12])
+cor(dummy_cols(dat, select_columns = "BsmtCond")[21:26])[1,]
+
+bsmtscore12 <- as.data.frame(ifelse(dat$BsmtCond == 'Ex', 5,
+                                    ifelse(dat$BsmtCond == 'Gd', 4,
+                                           ifelse(dat$BsmtCond == 'TA', 3,
+                                                  ifelse(dat$BsmtCond == 'Fa', 2,
+                                                         ifelse(dat$BsmtCond =='Po',
+                                                                1,0))))))
+```
+
+```{r 13 BsmtExposure}
+sum(is.na(dat[,13])) # 38 "NA" but only 37 no basement
+# change NA to NB, including the one without data
+dat[is.na(dat[,13]) ==1,]$BsmtExposure <- 'NB'
+table(dat[,13])
+cor(dummy_cols(dat, select_columns = "BsmtExposure")[21:26])[1,]
+
+bsmtscore13 <- as.data.frame(
+  ifelse(dat$BsmtExposure == 'Gd', 5,
+         ifelse(dat$BsmtExposure == 'Av', 3,
+                ifelse(dat$BsmtExposure == 'Mn', 1,0))))
+```
+  
+```{r 14 BsmtFinType1}
+sum(is.na(dat[,14])) # 37 no basement
+# change NA to NB
+dat[is.na(dat[,14]) ==1,]$BsmtFinType1 <- 'NB'
+table(dat[,14])
+cor(dummy_cols(dat, select_columns = "BsmtFinType1")[21:28])[1,]
+
+bsmtscore14 <- as.data.frame(
+  ifelse(dat$BsmtCond == 'GLQ', 5,
+         ifelse(dat$BsmtFinType1 == 'ALQ', 4,
+                ifelse(dat$BsmtFinType1 == 'BLQ', 3,
+                       ifelse(dat$BsmtFinType1 == 'Rec', 2,
+                              ifelse(dat$BsmtFinType1 =='LwQ',1,0))))))
+```
+
+```{r 16 BsmtFinType2}
+sum(is.na(dat[,16])) # 38 no basement
+# change NA to NB
+dat[is.na(dat[,16]) ==1,]$BsmtFinType2 <- 'NB'
+table(dat[,16])
+cor(dummy_cols(dat, select_columns = "BsmtFinType2")[21:28])[1,]
+
+bsmtscore16 <- as.data.frame(
+  ifelse(dat$BsmtCond == 'GLQ', 5,
+         ifelse(dat$BsmtFinType2 == 'ALQ', 4,
+                ifelse(dat$BsmtFinType2 == 'BLQ', 3,
+                       ifelse(dat$BsmtFinType2 == 'Rec', 2,
+                              ifelse(dat$BsmtFinType2 =='LwQ',1,0))))))
+```
+# Creating Average Basement Score
+```{r Bsmt Score}
+f12 <- (bsmtscore11 + bsmtscore12 + bsmtscore13 + bsmtscore14 +
+                   bsmtscore16)/5
+names(f12) <- "AvgBsmtScore"
+head(f12)
+```
+
+# 15 BsmtFinSF1
+BsmtFinSF1: Type 1 finished square feet
+``` {r BsmtFinSF1}
+# scatter plot with sales price
+ggplot(dat, aes(x = BsmtFinSF1, y = SalePrice)) + geom_point(alpha = .3) +
+  xlab('Basement Type 1 finished square feet') +
+  ylab('Sales Price')
+  
+# histogram
+ggplot(dat, aes(x = BsmtFinSF1)) + geom_histogram(bins = 100) +
+    xlab('Basement Type 1 finished square feet')
+
+# histogram without 0 sqft
+ggplot(dat[dat$BsmtFinSF1 > 1,], aes(x = BsmtFinSF1)) + 
+  geom_histogram(bins = 100) +
+  xlab('Basement Type 1 finished square feet')
+```
+# 17 BsmtFinSF2
+BsmtFinSF2: Type 2 finished square feet
+```{r BsmtFinSF2}
+# scatter plot with sales price
+ggplot(dat, aes(x = BsmtFinSF2, y = SalePrice)) + geom_point(alpha = .3) +
+  xlab('Basement Type 2 finished square feet') +
+  ylab('Sales Price')
+  
+# histogram
+ggplot(dat, aes(x = BsmtFinSF2)) + geom_histogram(bins = 100) +
+    xlab('Basement Type 2 finished square feet')
+
+# histogram without 0 sqft
+ggplot(dat[dat$BsmtFinSF2 > 1,], aes(x = BsmtFinSF2)) + 
+  geom_histogram(bins = 100) +
+  xlab('Basement Type 2 finished square feet')
+```
+
+# 18 BsmtUnfSF
+BsmtUnfSF: Unfinished square feet of basement area
+```{r BsmtUnfSF}
+# scatter plot with sales price
+ggplot(dat, aes(x = BsmtUnfSF, y = SalePrice)) + geom_point(alpha = .3) +
+  xlab('Unfinished square feet of basement area') +
+  ylab('Sales Price')
+  
+# histogram
+ggplot(dat, aes(x = BsmtUnfSF)) + geom_histogram(bins = 100) +
+  xlab('Unfinished square feet of basement area')
+
+# histogram without 0 sqft
+ggplot(dat[dat$BsmtUnfSF > 1,], aes(x = BsmtUnfSF)) + 
+  geom_histogram(bins = 100) +
+  xlab('Unfinished square feet of basement area')
+```
+# 19 TotalBsmtSF
+TotalBsmtSF: Total square feet of basement area
+```{r TotalBsmtSF}
+options(scipen=999)
+# scatter plot with sales price
+ggplot(dat, aes(x = TotalBsmtSF, y = SalePrice)) + geom_point(alpha = .3) +
+  xlab('Total square feet of basement area') +
+  ylab('Sales Price')
+  
+# histogram
+ggplot(dat, aes(x = TotalBsmtSF)) + geom_histogram(bins = 100) +
+  xlab('Total square feet of basement area')
+
+f19 <- as.data.frame(dat[,19])
+colnames(f19) <- 'TotalBsmtSF'
+```
+
+# 20 Heating
+Heating: Type of heating
+       Floor	Floor Furnace
+       GasA	Gas forced warm air furnace
+       GasW	Gas hot water or steam heat
+       Grav	Gravity furnace	
+       OthW	Hot water or steam heat other than gas
+       Wall	Wall furnace
+```{r Heating}
+sum(is.na(dat[,20])) # no NAs
+table(dat[,20])
+cor(dummy_cols(dat, select_columns = "Heating")[21:27])[1,]
+# combining everything other than GasA to "Others"
+f20 <- ifelse(dat[,20]!= 'GasA', 'OthrHeating', 'GasA')
+table(f20)
+
+f20 <- as.data.frame(as.factor(f20))
+names(f20) <- "Heating"
+head(f20)
+```
+
+# Creating Extra Variables
+## 21 PctFinBsmt
+Percentage of Finished Basement
+```{r PctFinBsmt}
+PctFinBsmt <- (dat[,15] + dat[,17])/dat[,19]
+f21 <- as.data.frame(PctFinBsmt)
+colnames(f21) <- 'PctFinBsmt'
+f21[is.na(f21),] <- '0' # changing NAs to 0 for no basements
+```
+
+# Combine all dataframes
+```{r cbind}
+final <- cbind(dat$SalePrice, f1, f2, f4, f6, f7, f8, 
+               f9, f10, f11, f12, f19, f20, f21)
+names(final)[1] <- "SalePrice"
+```
+## Exporting Final File
+```{r Export}
+write.csv(final, '/Users/joychen/OneDrive - UC Irvine/288Predictive/course_project/house-prices-data/final_train.csv')
+```
