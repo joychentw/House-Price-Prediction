@@ -4,7 +4,7 @@ June, 2021
 
 ## Objective
 
-Housing Sales Prediction: Our goal is to be able to forecast the future sales price and at the same time identify the factors that affect the price to predict the sales price.
+Our goal is to be able to forecast the future sales price and at the same time identify the factors that affect the price to predict the sales price.
 
 ## Background
 
